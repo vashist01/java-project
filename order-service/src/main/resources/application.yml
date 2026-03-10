@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: order-service
+
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/order_db
+      auto-index-creation: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all #→ message committed only when all replicas acknowledge.
+      retries: 3 #→ retries on temporary failures.
+
+    consumer:
+      group-id: order-service-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring.json.trusted.packages: "*"
+
+    listener:
+      ack-mode: manual #→ consumer decides when message processed.
+
+server:
+  port: 8081
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+  instance:
+    prefer-ip-address: true
+
+
+resilience4j:
+  retry:
+    instances:
+      orderDBRetry:
+        max-attempts: 3 #→ retry DB call 3 times.
+        wait-duration: 2s
+
+  circuitbreaker:
+    instances:
+      orderDBCircuit:
+        failure-rate-threshold: 50 #→ stop calling DB if 50% requests fail.
+        sliding-window-size: 10
+        wait-duration-in-open-state: 10s
+
+  bulkhead:
+    instances:
+      orderBulkhead:
+        max-concurrent-calls: 50 #→ limit concurrent calls to 50.
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+  endpoint:
+    prometheus:
+      enabled: true
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
