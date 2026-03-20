@@ -6,6 +6,7 @@ import com.payment.dto.request.InitiatePaymentRequestDTO;
 import com.payment.dto.response.PaymentResponse;
 import com.payment.entity.Idempotency;
 import com.payment.entity.PaymentIntent;
+import com.payment.enums.PaymentStatus;
 import com.payment.repository.IdempotenceRepository;
 import com.payment.repository.PaymentIntentRepository;
 import com.payment.util.IdempotencyConstant;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +34,7 @@ public class PaymentIntentService {
     private final RedisTemplate<String,String> redisTemplate;
     private final IdempotenceRepository idempotenceRepository;
     private final ObjectMapper objectMapper;
+    private final ProcessPaymentService processPaymentService;
     @Transactional
     public PaymentResponse initiatePaymentUrl(InitiatePaymentRequestDTO request, String idempotencyKey) {
 
@@ -43,15 +46,13 @@ public class PaymentIntentService {
         if (!lockAcquired) {
             throw new ValidateException("Request already processing");
         }
+        String cacheResponse = redisTemplate.opsForValue().get(cacheKey);
+
+        if(cacheResponse!=null){
+            log.warn("Duplicate Request with same param ");
+            throw new ValidateException("Duplicate Request Found with same idempotency key :");
+        }
         try{
-            String cacheResponse = redisTemplate.opsForValue().get(cacheKey);
-
-            if(cacheResponse!=null){
-
-                log.warn("Duplicate Request with same param ");
-                throw new ValidateException("Duplicate Request Found with same idempotency key :");
-            }
-
             Optional<Idempotency>  idempontencyOptional = idempotenceRepository.findByIdempotencyKey(idempotencyKey);
             if(idempontencyOptional.isPresent()){
                 log.warn("Duplicate Request with same param ");
@@ -59,19 +60,25 @@ public class PaymentIntentService {
             }
 
             PaymentIntent paymentIntent = PaymentIntent.builder().paymentId( SnowflakeIdGenerator.getUniqeTransactionId())
-                    .createdAt(LocalDateTime.now()).orderId(request.getOrderId()).paymentUrl(MockService.getPaymentUrl(request)).
-                    expiresAt(LocalDateTime.now().plusMinutes(10)).amount(request.getAmount()).build();
+                        .createdAt(LocalDateTime.now()).orderId(request.orderId()).paymentUrl("Payment Initiated").vendorOrderId(UUID.randomUUID().toString()).
+                    expiresAt(LocalDateTime.now().plusMinutes(10)).status(PaymentStatus.INITIATED.name()).amount(request.amount()).build();
 
-            paymentIntentRepository.save(paymentIntent);
+                paymentIntentRepository.save(paymentIntent);
 
             addIdempotency(idempotencyKey,request);
 
             updateRedisCacheByIdempotencyKey(cacheKey,request);
 
-            return PaymentResponse.builder().paymentUrl(paymentIntent.getPaymentUrl())
+            PaymentResponse paymentResponse = PaymentResponse.builder().paymentUrl("Payment Initiated is done")
                     .transactionId(paymentIntent.getPaymentId()).amount(paymentIntent.getAmount())
                     .orderId(paymentIntent.getOrderId()).build();
+
+            String webhookRequestJson = objectMapper.writeValueAsString(paymentIntent);
+            processPaymentService.processPaymentToWebhook(webhookRequestJson);
+
+            return paymentResponse;
         }catch (Exception exception){
+            log.error("Error: {}",exception);
             throw new ValidateException("Failed to initiate payment due some technical issue.");
         }finally{
             releaseLock(idempotencyKey);

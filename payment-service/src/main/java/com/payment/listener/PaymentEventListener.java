@@ -1,8 +1,6 @@
 package com.payment.listener;
 
 import com.payment.publisher.OrderPublishRecord;
-import com.payment.publisher.PaymentEventPublisher;
-import com.payment.service.PaymentIntentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -16,8 +14,6 @@ import java.util.Objects;
 @Slf4j
 public class PaymentEventListener {
 
-    private final PaymentEventPublisher paymentEventPublisher;
-    private PaymentIntentService paymentService;
 
     @KafkaListener(topics = "ORDER_CREATED",groupId = "payment-group")
     public void handleOrderCreated(OrderPublishRecord orderPublishRecord){
@@ -30,4 +26,5 @@ public class PaymentEventListener {
         log.error("DLT message: {}", consumerRecord.value());
         // alert, save to DB, manual investigation
     }
+
 }
