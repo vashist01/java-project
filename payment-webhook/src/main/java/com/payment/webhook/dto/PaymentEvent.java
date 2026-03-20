@@ -1,4 +1,5 @@
 package com.payment.webhook.dto;
 
-public class PaymentEvent {
+public record PaymentEvent(String payload) {
+
 }
