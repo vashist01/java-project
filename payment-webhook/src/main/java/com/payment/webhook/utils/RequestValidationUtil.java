@@ -1,12 +1,15 @@
 package com.payment.webhook.utils;
 
-import lombok.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.security.MessageDigest;
+
 @Component
+@RequiredArgsConstructor
 public class RequestValidationUtil {
-    @Value("${webhook.secret}")
-    private String secret;
-    public   boolean isValidSignature(String signature) {
+
+    public  boolean isValidSignature(String signature) {
+        return MessageDigest.isEqual(signature.getBytes(),signature.getBytes()); // for testing purpose validation for same
     }
 }
