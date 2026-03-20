@@ -1,12 +1,9 @@
 package com.payment.dto.request;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@Getter
-@Setter
-public class InitiatePaymentRequestDTO {
-
-    private String orderId;
-    private Double amount;
+public record InitiatePaymentRequestDTO(
+      @JsonProperty("order_id")
+      String orderId,
+      Double amount ){
 }
