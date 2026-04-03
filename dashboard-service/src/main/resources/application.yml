@@ -1,0 +1,48 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: always
+resilience4j:
+  timelimiter:
+    instances:
+      paymentService:
+        timeout-duration: 2s
+      orderService:
+        timeout-duration: 2s # if api take a time more then 2 second then it will to ignore this
+
+  circuitbreaker:
+    instances:
+      paymentService:
+        sliding-window-size: 10 # check the last calls if window size is 10 then it will check
+          #last 10 hits Last 10 calls:✅ ❌ ❌ ❌ ❌ ❌ ❌ ✅ ❌ ❌
+        failure-rate-threshold: 50 # if more than 50% failure service call then stop the calling -> service
+        # total cals = 10 , if out of 10 4 fail then failure response is 40% and continue calling service ,
+        #if out of 10 call 6 fail then 60% fail and stop the service calling and call fallback method
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+
+      orderService:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+
+    refundService:
+      sliding-window-size: 10
+      failure-rate-threshold: 50
+      wait-duration-in-open-state: 10s
+      permitted-number-of-calls-in-half-open-state: 3
+
+  retry:
+    instances:
+      paymentService:
+        max-attempts: 3
+        wait-duration: 500ms
+
+      orderService:
+        max-attempts: 3
+        wait-duration: 500ms
